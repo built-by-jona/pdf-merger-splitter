@@ -10,7 +10,9 @@
 </p>
 
 <p align="center">
-  <strong>🚀 Live Demo — Coming Soon</strong>
+  <a href="https://pdf-merger-splitter.streamlit.app/">
+    <strong>🚀 Open Live Demo</strong>
+  </a>
 </p>
 
 ---
