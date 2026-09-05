@@ -143,3 +143,111 @@ def test_split_missing_file(tmp_path):
             "1",
             output_pdf,
         )
+
+
+def test_merge_empty_list(tmp_path):
+    output_pdf = tmp_path / "merged.pdf"
+
+    with pytest.raises(
+        ValueError,
+        match="No PDF files were provided",
+    ):
+        merge_pdfs([], output_pdf)
+
+
+def test_merge_non_pdf_file(tmp_path):
+    text_file = tmp_path / "sample.txt"
+    second_pdf = tmp_path / "second.pdf"
+    output_pdf = tmp_path / "merged.pdf"
+
+    text_file.write_text("Not a PDF")
+    create_test_pdf(second_pdf)
+
+    with pytest.raises(
+        ValueError,
+        match="File must be a PDF",
+    ):
+        merge_pdfs(
+            [text_file, second_pdf],
+            output_pdf,
+        )
+
+
+def test_merge_corrupted_pdf(tmp_path):
+    bad_pdf = tmp_path / "bad.pdf"
+    good_pdf = tmp_path / "good.pdf"
+    output_pdf = tmp_path / "merged.pdf"
+
+    bad_pdf.write_bytes(b"This is not a real PDF")
+    create_test_pdf(good_pdf)
+
+    with pytest.raises(
+        ValueError,
+        match="Invalid or corrupted PDF",
+    ):
+        merge_pdfs(
+            [bad_pdf, good_pdf],
+            output_pdf,
+        )
+
+
+def test_parse_empty_selection():
+    with pytest.raises(
+        ValueError,
+        match="Page selection cannot be empty",
+    ):
+        parse_page_selection("", 5)
+
+
+def test_parse_extra_comma():
+    with pytest.raises(ValueError):
+        parse_page_selection("1,,3", 5)
+
+
+def test_parse_invalid_dash():
+    with pytest.raises(ValueError):
+        parse_page_selection("1-2-3", 5)
+
+
+def test_parse_zero_page():
+    with pytest.raises(ValueError):
+        parse_page_selection("0", 5)
+
+
+def test_parse_negative_page():
+    with pytest.raises(ValueError):
+        parse_page_selection("-1", 5)
+
+
+def test_split_non_pdf_file(tmp_path):
+    text_file = tmp_path / "sample.txt"
+    output_pdf = tmp_path / "split.pdf"
+
+    text_file.write_text("Not a PDF")
+
+    with pytest.raises(
+        ValueError,
+        match="File must be a PDF",
+    ):
+        split_pdf(
+            text_file,
+            "1",
+            output_pdf,
+        )
+
+
+def test_split_corrupted_pdf(tmp_path):
+    bad_pdf = tmp_path / "bad.pdf"
+    output_pdf = tmp_path / "split.pdf"
+
+    bad_pdf.write_bytes(b"Broken PDF content")
+
+    with pytest.raises(
+        ValueError,
+        match="Invalid or corrupted PDF",
+    ):
+        split_pdf(
+            bad_pdf,
+            "1",
+            output_pdf,
+        )

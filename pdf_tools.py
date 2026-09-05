@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
+from pypdf.errors import PdfReadError, PdfStreamError
 
 
 def project_status():
@@ -8,32 +9,41 @@ def project_status():
     return "PDF Merger & Splitter initialized"
 
 
+def _validate_pdf_file(file_path):
+    """Validate that a file exists and can be opened as a PDF."""
+    file_path = Path(file_path)
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"PDF file not found: {file_path}")
+
+    if file_path.suffix.lower() != ".pdf":
+        raise ValueError(f"File must be a PDF: {file_path}")
+
+    try:
+        PdfReader(str(file_path))
+    except (PdfReadError, PdfStreamError) as exc:
+        raise ValueError(
+            f"Invalid or corrupted PDF: {file_path}"
+        ) from exc
+
+    return file_path
+
+
 def merge_pdfs(input_files, output_file):
-    """
-    Merge multiple PDF files into one PDF.
+    """Merge multiple PDF files into one PDF."""
 
-    Args:
-        input_files: A list of PDF file paths.
-        output_file: Path for the merged output PDF.
+    if not input_files:
+        raise ValueError("No PDF files were provided.")
 
-    Returns:
-        Path to the created merged PDF.
-
-    Raises:
-        ValueError: If fewer than two PDF files are provided.
-        FileNotFoundError: If any input file does not exist.
-    """
     if len(input_files) < 2:
-        raise ValueError("At least two PDF files are required to merge.")
+        raise ValueError(
+            "At least two PDF files are required to merge."
+        )
 
     writer = PdfWriter()
 
     for file_path in input_files:
-        file_path = Path(file_path)
-
-        if not file_path.exists():
-            raise FileNotFoundError(f"PDF file not found: {file_path}")
-
+        file_path = _validate_pdf_file(file_path)
         reader = PdfReader(str(file_path))
 
         for page in reader.pages:
@@ -47,6 +57,7 @@ def merge_pdfs(input_files, output_file):
 
     return output_file
 
+
 def parse_page_selection(selection, total_pages):
     """
     Convert a page selection string into zero-based page indexes.
@@ -56,6 +67,9 @@ def parse_page_selection(selection, total_pages):
         "2,4,6" -> [1, 3, 5]
         "1-3,5,7-8" -> [0, 1, 2, 4, 6, 7]
     """
+    if total_pages < 1:
+        raise ValueError("PDF contains no pages.")
+
     if not selection or not selection.strip():
         raise ValueError("Page selection cannot be empty.")
 
@@ -64,14 +78,25 @@ def parse_page_selection(selection, total_pages):
     for part in selection.split(","):
         part = part.strip()
 
+        if not part:
+            raise ValueError("Invalid empty page selection.")
+
         if "-" in part:
+            if part.count("-") != 1:
+                raise ValueError(f"Invalid page range: {part}")
+
             start_text, end_text = part.split("-", 1)
+
+            if not start_text.strip() or not end_text.strip():
+                raise ValueError(f"Invalid page range: {part}")
 
             try:
                 start = int(start_text)
                 end = int(end_text)
-            except ValueError:
-                raise ValueError(f"Invalid page range: {part}")
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid page range: {part}"
+                ) from exc
 
             if start > end:
                 raise ValueError(f"Invalid page range: {part}")
@@ -87,8 +112,10 @@ def parse_page_selection(selection, total_pages):
         else:
             try:
                 page_number = int(part)
-            except ValueError:
-                raise ValueError(f"Invalid page number: {part}")
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid page number: {part}"
+                ) from exc
 
             if page_number < 1 or page_number > total_pages:
                 raise ValueError(
@@ -101,21 +128,9 @@ def parse_page_selection(selection, total_pages):
 
 
 def split_pdf(input_file, page_selection, output_file):
-    """
-    Extract selected pages from a PDF into a new PDF.
+    """Extract selected pages from a PDF into a new PDF."""
 
-    Args:
-        input_file: Path to the source PDF.
-        page_selection: Pages to extract, e.g. "1-3,5,7".
-        output_file: Path for the new PDF.
-
-    Returns:
-        Path to the created PDF.
-    """
-    input_file = Path(input_file)
-
-    if not input_file.exists():
-        raise FileNotFoundError(f"PDF file not found: {input_file}")
+    input_file = _validate_pdf_file(input_file)
 
     reader = PdfReader(str(input_file))
     total_pages = len(reader.pages)
